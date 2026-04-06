@@ -1,0 +1,180 @@
+import { config } from "./config.js";
+import { createLogger } from "./logging/logger.js";
+import { getDb, closeDb } from "./state/db.js";
+import { getMcpConfigPath } from "./claude/mcpConfig.js";
+import { createSlackApp } from "./slack/socketClient.js";
+import { fetchThreadContext } from "./slack/threadContext.js";
+import { getOrCreatePersona, getTraits } from "./persona/store.js";
+import { buildSystemPrompt } from "./claude/systemPrompt.js";
+import { runClaude } from "./claude/runner.js";
+import { trackQuery } from "./persona/tracker.js";
+import type { SlackEventEnvelope } from "./types/contracts.js";
+
+const log = createLogger("main");
+
+// Simple semaphore for concurrency limiting
+let activeRequests = 0;
+const MAX_CONCURRENT = 3;
+
+async function handleEvent(
+  envelope: SlackEventEnvelope,
+  client: Parameters<import("./slack/socketClient.js").EventHandler>[1]
+): Promise<void> {
+  if (activeRequests >= MAX_CONCURRENT) {
+    await client.chat.postMessage({
+      channel: envelope.channelId,
+      thread_ts: envelope.threadTs,
+      text: ":hourglass: I'm handling several requests right now. Please wait a moment...",
+    });
+    return;
+  }
+
+  activeRequests++;
+  try {
+    // Add :eyes: reaction
+    try {
+      await client.reactions.add({
+        channel: envelope.channelId,
+        timestamp: envelope.messageTs,
+        name: "eyes",
+      });
+    } catch {
+      // Reaction may fail if already added or no permission
+    }
+
+    // Fetch thread context
+    const threadMessages = await fetchThreadContext(
+      client,
+      envelope.channelId,
+      envelope.threadTs
+    );
+
+    let threadContext: string | undefined;
+    if (threadMessages.length > 0) {
+      threadContext = threadMessages
+        .map((m) => `<@${m.userId}>: ${m.text}`)
+        .join("\n");
+    }
+
+    // Look up user info for persona
+    let displayName = envelope.userId;
+    try {
+      const userInfo = await client.users.info({ user: envelope.userId });
+      displayName =
+        userInfo.user?.real_name ??
+        userInfo.user?.name ??
+        envelope.userId;
+    } catch {
+      // Fall back to user ID
+    }
+
+    // Load/create persona and build system prompt
+    const persona = getOrCreatePersona(envelope.userId, displayName);
+    const traits = getTraits(envelope.userId);
+    const systemPrompt = buildSystemPrompt(persona, traits);
+
+    // Run Claude
+    log.info(
+      {
+        userId: envelope.userId,
+        type: envelope.type,
+        textLength: envelope.text.length,
+      },
+      "Processing request"
+    );
+
+    const response = await runClaude(systemPrompt, envelope.text, threadContext);
+
+    // Post response
+    await client.chat.postMessage({
+      channel: envelope.channelId,
+      thread_ts: envelope.threadTs,
+      text: response.text,
+      unfurl_links: false,
+    });
+
+    // Swap :eyes: for :white_check_mark:
+    try {
+      await client.reactions.remove({
+        channel: envelope.channelId,
+        timestamp: envelope.messageTs,
+        name: "eyes",
+      });
+      await client.reactions.add({
+        channel: envelope.channelId,
+        timestamp: envelope.messageTs,
+        name: "white_check_mark",
+      });
+    } catch {
+      // Reaction management is best-effort
+    }
+
+    // Track query for persona evolution
+    trackQuery(
+      envelope.userId,
+      envelope.channelId,
+      envelope.threadTs,
+      envelope.text
+    );
+
+    log.info(
+      { userId: envelope.userId, durationMs: response.durationMs },
+      "Request completed"
+    );
+  } catch (err) {
+    log.error({ err, userId: envelope.userId }, "Failed to handle event");
+
+    try {
+      await client.reactions.add({
+        channel: envelope.channelId,
+        timestamp: envelope.messageTs,
+        name: "x",
+      });
+      await client.chat.postMessage({
+        channel: envelope.channelId,
+        thread_ts: envelope.threadTs,
+        text: ":warning: Sorry, I hit an error processing that request. Please try again.",
+      });
+    } catch {
+      // Best effort error reporting
+    }
+  } finally {
+    activeRequests--;
+  }
+}
+
+async function main(): Promise<void> {
+  log.info("Starting Sentinel");
+
+  // Initialize database
+  getDb();
+  log.info("Database initialized");
+
+  // Generate MCP config
+  getMcpConfigPath();
+  log.info("MCP config generated");
+
+  // Start Slack app
+  const app = createSlackApp(handleEvent);
+  await app.start();
+  log.info("Slack Socket Mode connected — Sentinel is ready");
+}
+
+main().catch((err) => {
+  log.fatal({ err }, "Fatal error during startup");
+  closeDb();
+  process.exit(1);
+});
+
+// Graceful shutdown
+process.on("SIGINT", () => {
+  log.info("Received SIGINT, shutting down");
+  closeDb();
+  process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+  log.info("Received SIGTERM, shutting down");
+  closeDb();
+  process.exit(0);
+});

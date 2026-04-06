@@ -1,0 +1,13 @@
+services:
+  sentinel:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - sentinel-data:/app/data
+    environment:
+      - SQLITE_DB_PATH=/app/data/sentinel.db
+
+volumes:
+  sentinel-data:
