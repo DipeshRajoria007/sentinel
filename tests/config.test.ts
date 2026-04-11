@@ -7,7 +7,7 @@ const envSchema = z.object({
   SLACK_APP_TOKEN: z.string().startsWith("xapp-"),
   BOT_USER_ID: z.string().min(1),
   CLAUDE_BIN: z.string().default("claude"),
-  ANTHROPIC_API_KEY: z.string().min(1),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
   METABASE_URL: z.string().url().optional(),
   METABASE_USERNAME: z.string().min(1).optional(),
   METABASE_PASSWORD: z.string().min(1).optional(),
@@ -175,19 +175,28 @@ describe("config schema", () => {
       SLACK_BOT_TOKEN: "xoxb-test-token",
       SLACK_APP_TOKEN: "xapp-test-token",
       BOT_USER_ID: "U123456",
-      ANTHROPIC_API_KEY: "sk-ant-test",
       ALLOWED_USER_IDS: "U123",
     };
 
-    it("parses successfully with only Slack + Claude vars (no Metabase/GitHub/Notion)", () => {
+    it("parses successfully with only Slack vars (no API key, no data sources)", () => {
       const result = envSchema.safeParse(minimalEnv);
       expect(result.success).toBe(true);
       if (result.success) {
+        expect(result.data.ANTHROPIC_API_KEY).toBeUndefined();
         expect(result.data.METABASE_URL).toBeUndefined();
-        expect(result.data.METABASE_USERNAME).toBeUndefined();
-        expect(result.data.METABASE_PASSWORD).toBeUndefined();
         expect(result.data.GITHUB_TOKEN).toBeUndefined();
         expect(result.data.NOTION_API_KEY).toBeUndefined();
+      }
+    });
+
+    it("parses successfully with ANTHROPIC_API_KEY when provided", () => {
+      const result = envSchema.safeParse({
+        ...minimalEnv,
+        ANTHROPIC_API_KEY: "sk-ant-test",
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.ANTHROPIC_API_KEY).toBe("sk-ant-test");
       }
     });
 
