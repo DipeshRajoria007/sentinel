@@ -38,11 +38,13 @@ export async function runClaude(
   );
 
   return new Promise<ClaudeResponse>((resolve, reject) => {
+    const env = { ...process.env };
+    if (config.ANTHROPIC_API_KEY) {
+      env.ANTHROPIC_API_KEY = config.ANTHROPIC_API_KEY;
+    }
+
     const proc = spawn(config.CLAUDE_BIN, args, {
-      env: {
-        ...process.env,
-        ANTHROPIC_API_KEY: config.ANTHROPIC_API_KEY,
-      },
+      env,
       stdio: ["ignore", "pipe", "pipe"],
       timeout: TIMEOUT_MS,
     });

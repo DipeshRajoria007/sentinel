@@ -7,7 +7,7 @@ const envSchema = z.object({
   BOT_USER_ID: z.string().min(1),
 
   CLAUDE_BIN: z.string().default("claude"),
-  ANTHROPIC_API_KEY: z.string().min(1),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
 
   // Metabase (optional — bot starts without it)
   METABASE_URL: z.string().url().optional(),
