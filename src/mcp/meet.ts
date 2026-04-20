@@ -10,24 +10,43 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { google } from "googleapis";
 import { z } from "zod";
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
 const REFRESH_TOKEN = process.env.GOOGLE_REFRESH_TOKEN!;
 
-const auth = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
-auth.setCredentials({ refresh_token: REFRESH_TOKEN });
+let cachedToken: { token: string; expiresAt: number } | null = null;
 
-// Google Meet API v2 isn't in the main `googleapis` discovery for all versions.
-// Use raw fetch with OAuth access token.
+// Google Meet API v2 isn't in the main `googleapis` discovery, so we use
+// direct fetch against the token endpoint and REST API.
 async function getAccessToken(): Promise<string> {
-  const { credentials } = await auth.refreshAccessToken();
-  if (!credentials.access_token) {
-    throw new Error("Failed to obtain Google access token");
+  if (cachedToken && Date.now() < cachedToken.expiresAt - 30_000) {
+    return cachedToken.token;
   }
-  return credentials.access_token;
+
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      refresh_token: REFRESH_TOKEN,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Token refresh failed: ${res.status} ${errText}`);
+  }
+
+  const data = (await res.json()) as { access_token: string; expires_in: number };
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + data.expires_in * 1000,
+  };
+  return data.access_token;
 }
 
 async function meetFetch(path: string): Promise<unknown> {

@@ -38,6 +38,7 @@ async function main() {
   console.log("");
 
   const context = await chromium.launchPersistentContext(PROFILE_DIR, {
+    channel: "chrome",
     headless: false,
     viewport: { width: 1280, height: 800 },
     args: ["--disable-blink-features=AutomationControlled"],
