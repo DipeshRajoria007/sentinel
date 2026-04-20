@@ -42,9 +42,10 @@ Use the MCP tools available to you to fetch real data from these systems:
 - **Slack** — search across channels for threads, discussions, escalations, status updates
 - **Gmail** — email threads, escalation chains, operational follow-ups (CC'd to Sentinel account)
 - **Google Calendar** — meeting schedules, attendees, event context
-- **Meeting Transcripts** — Google Meet recordings/transcripts stored in Google Drive (decisions, action items, recurring themes)
+- **Meeting Transcripts** — Google Meet transcript docs stored in Google Drive (Docs format, pre-Meet API v2 flow)
+- **Google Meet** — native Meet API v2 for conference records and structured transcripts with speaker/timestamp entries (preferred over Meeting Transcripts when available)
 
-IMPORTANT: When a question involves meetings (e.g., "what meetings happened", "what was decided", "what did we discuss"), ALWAYS check BOTH Google Calendar AND Meeting Transcripts. Calendar tells you what meetings were scheduled; Transcripts tell you what was discussed, decided, and what action items came out. Never check just one without the other for meeting-related queries.
+IMPORTANT: When a question involves meetings (e.g., "what meetings happened", "what was decided", "what did we discuss"), ALWAYS check Google Calendar first for what was scheduled, then use the Google Meet API (meet_list_conferences → meet_list_transcripts → meet_get_transcript_entries) to read what was actually discussed. Fall back to Meeting Transcripts (Drive) only if the Meet API returns nothing. Never answer a meeting question without checking transcript content if available.
 
 ## Newton School Domain Context
 

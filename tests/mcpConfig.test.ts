@@ -37,7 +37,8 @@ describe("getUnavailableSources", () => {
     expect(unavailable).toContain("Gmail");
     expect(unavailable).toContain("Google Calendar");
     expect(unavailable).toContain("Meeting Transcripts");
-    expect(unavailable).toHaveLength(4);
+    expect(unavailable).toContain("Google Meet");
+    expect(unavailable).toHaveLength(5);
   });
 
   it("reports no unavailable sources when all optional vars are set", async () => {
@@ -83,7 +84,8 @@ describe("getUnavailableSources", () => {
     expect(unavailable).toContain("Gmail");
     expect(unavailable).toContain("Google Calendar");
     expect(unavailable).toContain("Meeting Transcripts");
-    expect(unavailable).toHaveLength(3);
+    expect(unavailable).toContain("Google Meet");
+    expect(unavailable).toHaveLength(4);
   });
 
   it("reports only Slack when Google is set but Slack token is not", async () => {
@@ -265,11 +267,13 @@ describe("getMcpConfigPath", () => {
     expect(config.mcpServers).toHaveProperty("gmail");
     expect(config.mcpServers).toHaveProperty("google-calendar");
     expect(config.mcpServers).toHaveProperty("meeting-transcripts");
+    expect(config.mcpServers).toHaveProperty("google-meet");
 
     // Verify Google env vars are passed
     expect(config.mcpServers.gmail.env.GOOGLE_CLIENT_ID).toBe("client-id");
     expect(config.mcpServers["google-calendar"].env.GOOGLE_CLIENT_SECRET).toBe("client-secret");
     expect(config.mcpServers["meeting-transcripts"].env.GOOGLE_REFRESH_TOKEN).toBe("refresh-token");
+    expect(config.mcpServers["google-meet"].env.GOOGLE_CLIENT_ID).toBe("client-id");
   });
 
   it("excludes Google servers when Google credentials are missing", async () => {
@@ -294,6 +298,7 @@ describe("getMcpConfigPath", () => {
     expect(config.mcpServers).not.toHaveProperty("gmail");
     expect(config.mcpServers).not.toHaveProperty("google-calendar");
     expect(config.mcpServers).not.toHaveProperty("meeting-transcripts");
+    expect(config.mcpServers).not.toHaveProperty("google-meet");
   });
 
   it("excludes Google servers when only partial credentials are set", async () => {
@@ -318,6 +323,7 @@ describe("getMcpConfigPath", () => {
     expect(config.mcpServers).not.toHaveProperty("gmail");
     expect(config.mcpServers).not.toHaveProperty("google-calendar");
     expect(config.mcpServers).not.toHaveProperty("meeting-transcripts");
+    expect(config.mcpServers).not.toHaveProperty("google-meet");
   });
 
   it("excludes metabase when METABASE_URL is not set", async () => {
@@ -408,6 +414,7 @@ describe("getMcpConfigPath", () => {
     expect(config.mcpServers).toHaveProperty("gmail");
     expect(config.mcpServers).toHaveProperty("google-calendar");
     expect(config.mcpServers).toHaveProperty("meeting-transcripts");
+    expect(config.mcpServers).toHaveProperty("google-meet");
     expect(config.mcpServers).not.toHaveProperty("metabase");
     expect(config.mcpServers).not.toHaveProperty("github");
     expect(config.mcpServers).not.toHaveProperty("notion");
