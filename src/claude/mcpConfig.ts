@@ -126,7 +126,13 @@ export function getMcpConfigPath(): string {
       env: googleEnv,
     };
 
-    log.info("Google Workspace MCP servers registered (Gmail, Calendar, Transcripts)");
+    mcpConfig.mcpServers["google-meet"] = {
+      command: "node",
+      args: [join(process.cwd(), "dist", "mcp", "meet.js")],
+      env: googleEnv,
+    };
+
+    log.info("Google Workspace MCP servers registered (Gmail, Calendar, Transcripts, Meet)");
   } else {
     log.warn("Google credentials not set — Gmail, Calendar, and Transcripts disabled");
   }
@@ -173,6 +179,7 @@ export function getUnavailableSources(): string[] {
     unavailable.push("Gmail");
     unavailable.push("Google Calendar");
     unavailable.push("Meeting Transcripts");
+    unavailable.push("Google Meet");
   }
 
   return unavailable;

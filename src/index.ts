@@ -180,7 +180,7 @@ async function main(): Promise<void> {
 
   // Start health check server
   const unavailableSources = getUnavailableSources();
-  const allSources = ["Metabase", "GitHub", "Notion", "Slack search", "Gmail", "Google Calendar", "Meeting Transcripts"];
+  const allSources = ["Metabase", "GitHub", "Notion", "Slack search", "Gmail", "Google Calendar", "Meeting Transcripts", "Google Meet"];
   const activeSources = allSources.filter((s) => !unavailableSources.includes(s));
   startHealthServer(config.HEALTH_CHECK_PORT, (): HealthStatus => {
     let dbStatus: "connected" | "error" = "connected";
